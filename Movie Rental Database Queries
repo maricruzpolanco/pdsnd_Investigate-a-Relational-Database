@@ -1,0 +1,112 @@
+Slide 1
+
+Monthly Payment History for The Top 5 Customers in 2007
+
+WITH top_5_customers AS (
+			SELECT c.customer_id,
+		  		   SUM(amount) AS pay_amount
+			  FROM customer AS c
+				     JOIN payment AS p
+				     ON c.customer_id = p.customer_id
+		   GROUP BY 1
+		   ORDER BY 2 DESC
+			 LIMIT 5),
+
+	    monthly_payments AS (
+		   SELECT DATE_TRUNC('month',payment_date) AS pay_mon,
+		  	      c.customer_id,
+	   			    first_name ||' '|| last_name AS fullname,
+	   			    COUNT(*) AS pay_countpermon,
+	   			    SUM(p.amount) AS pay_amount
+		     FROM payment AS p
+              JOIN customer AS c
+			        ON c.customer_id = p.customer_id
+	      GROUP BY 1, 2
+		    ORDER BY 2, 1)
+
+    SELECT monthly_payments.pay_mon,
+	         monthly_payments.fullname,
+	         monthly_payments.pay_countpermon,
+	         Monthly_payments.pay_amount
+      FROM Monthly_payments
+	         JOIN top_5_customers
+	         ON top_5_customers.customer_id = monthly_payments.customer_id
+	   ORDER BY 2, 1;
+
+
+Slide 2
+
+Monthly Rental Count by Store ID
+
+    SELECT s1.store_id,
+           COUNT(*) AS rental_count,
+           DATE_PART('month',rental_date) AS rental_month
+      FROM store AS s1
+           JOIN staff AS s2
+           ON s1.store_id = s2.staff_id
+
+           JOIN rental AS r
+           ON r.staff_id = s2.staff_id
+     WHERE DATE_PART('year',rental_date) = 2005
+     GROUP BY 1, 3
+     ORDER BY 1;
+
+
+Slide 3
+
+Count of Movies by Family-Friendly Category In Each Rental Duration Quartile
+
+WITH quartiles AS (
+			         SELECT f1.title,
+				              c.name,
+						          f1.rental_duration,
+						          NTILE(4) OVER (ORDER BY rental_duration) AS standard_quartile
+	               FROM film AS f1
+	                    LEFT JOIN film_category AS f2
+	                    ON f1.film_id = f2.film_id
+
+					       LEFT JOIN category AS c
+	                    ON c.category_id = f2.category_id
+	              WHERE name IN ('Animation', 'Children', 'Classics', 'Comedy', 'Family', 'Music'))
+
+  SELECT quartiles.name,
+         quartiles.standard_quartile,
+	       COUNT(quartiles.name)
+    FROM quartiles
+GROUP BY 1, 2
+ORDER BY 1, 2;
+
+
+Slide 4
+
+Movie Count by Category Name and Replacement Cost
+
+WITH t1 AS (
+		     SELECT f1.title,
+			          c.name,
+	              f1.replacement_cost,
+	              CASE WHEN f1.replacement_cost < 15 THEN 'inexpensive'
+	                   WHEN f1.replacement_cost BETWEEN 15 AND 20 THEN 'average'
+	                   WHEN f1.replacement_cost > 20 THEN 'expensive'
+	                   END AS replacement_costs
+		       FROM film AS f1
+  		          JOIN film_category AS f2
+                ON f1.film_id = f2.film_id
+
+			          JOIN category AS c
+			          ON c.category_id = f2.category_id
+
+			          JOIN inventory AS i
+			          ON i.film_id = f1.film_id
+
+			          JOIN rental r
+			          ON r.inventory_id = i.inventory_id
+		   GROUP BY 1, 2, 3
+		   ORDER BY 3)
+
+SELECT t1.name,
+       COUNT(CASE WHEN t1.replacement_costs = 'inexpensive' THEN 1 END) AS inexpensive,
+	     COUNT(CASE WHEN t1.replacement_costs = 'average' THEN 1 END) AS average,
+	     COUNT(CASE WHEN t1.replacement_costs = 'expensive' THEN 1 END) AS expensive
+  FROM t1
+ GROUP BY 1;
